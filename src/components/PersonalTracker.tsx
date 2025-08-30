@@ -1,261 +1,335 @@
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { Car, Home, Utensils, Plane, TrendingDown, Leaf, Target, Users, Globe, LogIn } from "lucide-react";
-// Using EcoGuide logo instead of separate carbon icon
-import { supabase } from "@/lib/supabase";
-import { useUserAuth } from "@/contexts/UserAuthContext";
+import { useState, useEffect } from 'react'
+import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
+import { 
+  TrendingDown, 
+  Target, 
+  Calendar, 
+  Activity,
+  Plus,
+  ArrowRight,
+  Leaf,
+  Zap,
+  Car,
+  Utensils,
+  Home,
+  ShoppingBag
+} from 'lucide-react'
+import { useUserAuth } from '@/contexts/UserAuthContext'
+import { supabase } from '@/lib/supabase'
+
+interface CarbonEntry {
+  id: string
+  category: string
+  activity_type: string
+  value?: number
+  amount?: number
+  unit?: string
+  co2_kg?: number
+  co2_emitted?: number
+  description?: string
+  notes?: string
+  date_recorded?: string
+  date?: string
+  user_id?: string
+}
+
+interface UserStats {
+  total_co2: number
+  monthly_co2: number
+  goal_progress: number
+  streak_days: number
+  top_category: string
+  recent_activities: string[]
+}
 
 const PersonalTracker = () => {
-  const { isAuthenticated } = useUserAuth()
-  const [communityStats, setCommunityStats] = useState({
-    total_users: 0,
-    total_co2_tracked: 0,
-    avg_monthly_reduction: 0,
-    top_categories: []
+  const { user, profile, isAuthenticated } = useUserAuth()
+  const [entries, setEntries] = useState<CarbonEntry[]>([])
+  const [stats, setStats] = useState<UserStats>({
+    total_co2: 0,
+    monthly_co2: 0,
+    goal_progress: 0,
+    streak_days: 0,
+    top_category: 'transportation',
+    recent_activities: []
   })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchCommunityStats()
-  }, [])
+    if (isAuthenticated && user) {
+      fetchUserData()
+    } else {
+      setLoading(false)
+    }
+  }, [isAuthenticated, user])
 
-  const fetchCommunityStats = async () => {
+  const fetchUserData = async () => {
+    if (!user) return
+
     try {
-      const hasRealCredentials = 
-        import.meta.env.VITE_SUPABASE_URL && 
-        import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder.supabase.co'
+      // Fetch carbon tracking entries from database
+      const { data: entriesData, error: entriesError } = await supabase
+        .from('carbon_tracking')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('date', { ascending: false })
+        .limit(10)
 
-      if (!hasRealCredentials) {
-        // Use mock data if no Supabase
-        setCommunityStats({
-          total_users: 1247,
-          total_co2_tracked: 15623.5,
-          avg_monthly_reduction: 145.2,
-          top_categories: [
-            { category: 'transportation', total_co2: 8245.3 },
-            { category: 'energy', total_co2: 4532.1 },
-            { category: 'food', total_co2: 2846.1 }
-          ]
-        })
-        setLoading(false)
-        return
-      }
-
-      const { data, error } = await supabase.rpc('get_public_tracking_stats')
-      
-      if (error) {
-        console.warn('Could not fetch community stats:', error)
-        // Fall back to mock data
-        setCommunityStats({
-          total_users: 1247,
-          total_co2_tracked: 15623.5,
-          avg_monthly_reduction: 145.2,
-          top_categories: [
-            { category: 'transportation', total_co2: 8245.3 },
-            { category: 'energy', total_co2: 4532.1 },
-            { category: 'food', total_co2: 2846.1 }
-          ]
-        })
+      if (entriesError) {
+        console.warn('Carbon tracking error:', entriesError.message)
+        setEntries([])
       } else {
-        setCommunityStats(data || {
-          total_users: 0,
-          total_co2_tracked: 0,
-          avg_monthly_reduction: 0,
-          top_categories: []
-        })
+        setEntries(entriesData || [])
       }
+
+      // Calculate stats from real data
+      const now = new Date()
+      const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+
+      const totalCo2 = (entriesData || []).reduce((sum, entry) => sum + (entry.co2_emitted || entry.co2_kg || 0), 0)
+      const monthlyCo2 = (entriesData || []).filter(entry => new Date(entry.date) >= currentMonth)
+        .reduce((sum, entry) => sum + (entry.co2_emitted || entry.co2_kg || 0), 0)
+
+      const monthlyGoal = (profile?.carbon_goal || 2000) / 12
+      const goalProgress = (monthlyCo2 / monthlyGoal) * 100
+
+      // Calculate top category
+      const categoryTotals: Record<string, number> = {}
+      entriesData?.forEach(entry => {
+        const category = entry.category
+        categoryTotals[category] = (categoryTotals[category] || 0) + (entry.co2_emitted || entry.co2_kg || 0)
+      })
+      
+      const topCategory = Object.entries(categoryTotals)
+        .sort(([,a], [,b]) => b - a)[0]?.[0] || 'transportation'
+
+      // Get recent activities
+      const recentActivities = entriesData?.slice(0, 3).map(entry => 
+        `${entry.activity_type} (${entry.category})`
+      ) || []
+
+      setStats({
+        total_co2: totalCo2,
+        monthly_co2: monthlyCo2,
+        goal_progress: Math.min(goalProgress, 100),
+        streak_days: 7, // Calculate actual streak later
+        top_category: topCategory,
+        recent_activities: recentActivities
+      })
+
     } catch (error) {
-      console.warn('Error fetching community stats:', error)
+      console.error('Error fetching user data:', error)
+      setEntries([])
+      setStats({
+        total_co2: 0,
+        monthly_co2: 0,
+        goal_progress: 0,
+        streak_days: 0,
+        top_category: 'transportation',
+        recent_activities: []
+      })
     } finally {
       setLoading(false)
     }
   }
 
-  const tips = [
-    {
-      title: "Switch to Matatus",
-      impact: "0.3 tons CO₂/year",
-      description: "In Nairobi, using public transport twice a week reduces emissions significantly"
-    },
-    {
-      title: "Solar Water Heating",
-      impact: "0.5 tons CO₂/year",
-      description: "Solar heating systems reduce energy consumption and costs"
-    },
-    {
-      title: "Local Food Choices",
-      impact: "0.2 tons CO₂/year", 
-      description: "Choosing locally grown food reduces transportation emissions"
-    }
-  ];
-
-  const progressPercent = (communityStats.totalMembers / (communityStats.totalMembers + 100)) * 100;
-
   const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'transportation': return Car
-      case 'energy': return Home
-      case 'food': return Utensils
-      default: return Globe
+    switch (category.toLowerCase()) {
+      case 'transportation': return <Car className="w-4 h-4" />
+      case 'energy': return <Zap className="w-4 h-4" />
+      case 'food': return <Utensils className="w-4 h-4" />
+      case 'waste': return <ShoppingBag className="w-4 h-4" />
+      case 'home': return <Home className="w-4 h-4" />
+      default: return <Activity className="w-4 h-4" />
     }
   }
 
-  return (
-    <section className="py-20 px-6 bg-background">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-12">
-                    <div className="mb-6">
-            <img
-              src="/ecoguide.jpg"
-              alt="EcoGuide AI - Community carbon footprint tracking"
-              className="w-20 h-20 mx-auto mb-4 animate-float rounded-full object-cover border-4 border-primary/20"
-            />
+  const getCategoryColor = (category: string) => {
+    switch (category.toLowerCase()) {
+      case 'transportation': return 'bg-blue-100 text-blue-800'
+      case 'energy': return 'bg-yellow-100 text-yellow-800'
+      case 'food': return 'bg-green-100 text-green-800'
+      case 'waste': return 'bg-purple-100 text-purple-800'
+      case 'home': return 'bg-indigo-100 text-indigo-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="py-16 bg-muted/10">
+        <div className="max-w-7xl mx-auto px-6 text-center">
+          <h2 className="text-3xl font-bold mb-4">Personal Carbon Tracker</h2>
+          <p className="text-lg text-muted-foreground mb-8">
+            Track your carbon footprint and get personalized insights
+          </p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 max-w-md mx-auto">
+            <Leaf className="w-12 h-12 text-green-600 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-blue-900 mb-2">Start Tracking Today</h3>
+            <p className="text-blue-800 mb-4">
+              Sign in to access your personal carbon tracker and start monitoring your environmental impact.
+            </p>
+            <Button asChild className="w-full">
+              <a href="/login">Sign In to Track</a>
+            </Button>
           </div>
-          <h2 className="text-4xl lg:text-5xl font-bold text-foreground mb-4">
-            Community Impact Statistics
-          </h2>
-          <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-            See how our community is making a difference in climate action and carbon reduction
+        </div>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="py-16 bg-muted/10">
+        <div className="max-w-7xl mx-auto px-6 text-center">
+          <h2 className="text-3xl font-bold mb-4">Personal Carbon Tracker</h2>
+          <div className="animate-pulse">
+            <div className="h-4 bg-muted rounded w-1/3 mx-auto mb-8"></div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="h-32 bg-muted rounded"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="py-16 bg-muted/10">
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-bold mb-4">Personal Carbon Tracker</h2>
+          <p className="text-lg text-muted-foreground mb-8">
+            Welcome back, {profile?.full_name || user?.email}! Here's your environmental impact overview.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Community Stats Overview */}
-          <Card className="p-8 lg:col-span-2">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-semibold text-foreground">Community Impact</h3>
-              <Badge variant="outline" className="text-primary border-primary">
-                <Users className="w-4 h-4 mr-1" />
-                Live Stats
-              </Badge>
-            </div>
+        {/* Stats Overview */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="p-6 text-center">
+            <TrendingDown className="w-8 h-8 text-red-600 mx-auto mb-2" />
+            <div className="text-2xl font-bold text-foreground">{stats.total_co2.toFixed(1)}</div>
+            <div className="text-sm text-muted-foreground">Total CO₂ (kg)</div>
+          </Card>
+          
+          <Card className="p-6 text-center">
+            <Calendar className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+            <div className="text-2xl font-bold text-foreground">{stats.monthly_co2.toFixed(1)}</div>
+            <div className="text-sm text-muted-foreground">This Month (kg)</div>
+          </Card>
+          
+          <Card className="p-6 text-center">
+            <Target className="w-8 h-8 text-green-600 mx-auto mb-2" />
+            <div className="text-2xl font-bold text-foreground">{stats.goal_progress.toFixed(0)}%</div>
+            <div className="text-sm text-muted-foreground">Goal Progress</div>
+          </Card>
+          
+          <Card className="p-6 text-center">
+            <Activity className="w-8 h-8 text-purple-600 mx-auto mb-2" />
+            <div className="text-2xl font-bold text-foreground">{stats.streak_days}</div>
+            <div className="text-sm text-muted-foreground">Day Streak</div>
+          </Card>
+        </div>
 
-            {/* Community Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-6 mb-8">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-primary mb-2">
-                  {loading ? '...' : communityStats.total_users.toLocaleString()}
-                </div>
-                <p className="text-sm text-muted-foreground">Active Trackers</p>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-secondary mb-2">
-                  {loading ? '...' : `${communityStats.total_co2_tracked.toLocaleString()} kg`}
-                </div>
-                <p className="text-sm text-muted-foreground">CO₂ Tracked</p>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-accent mb-2">
-                  {loading ? '...' : `${communityStats.avg_monthly_reduction.toFixed(0)} kg`}
-                </div>
-                <p className="text-sm text-muted-foreground">Avg Monthly Reduction</p>
-              </div>
+        {/* Goal Progress */}
+        <Card className="p-6 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Monthly Carbon Goal</h3>
+            <Badge variant="outline">{profile?.carbon_goal || 2000} kg/year</Badge>
+          </div>
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span>Current: {stats.monthly_co2.toFixed(1)} kg</span>
+              <span>Goal: {((profile?.carbon_goal || 2000) / 12).toFixed(1)} kg</span>
             </div>
+            <Progress value={stats.goal_progress} className="h-3" />
+            <p className="text-sm text-muted-foreground">
+              {stats.goal_progress >= 100 
+                ? 'You\'ve exceeded your monthly goal! Great job!' 
+                : `You're ${((profile?.carbon_goal || 2000) / 12 - stats.monthly_co2).toFixed(1)} kg away from your monthly goal.`
+              }
+            </p>
+          </div>
+        </Card>
 
-            {/* Top Categories */}
-            {!loading && communityStats.top_categories.length > 0 && (
-              <div className="space-y-4">
-                <h4 className="text-lg font-semibold text-foreground">Top Impact Categories</h4>
-                {communityStats.top_categories.slice(0, 3).map((category: any, index: number) => {
-                  const Icon = getCategoryIcon(category.category);
-                  const percentage = (category.total_co2 / communityStats.total_co2_tracked) * 100;
-                  const colors = ['bg-primary', 'bg-secondary', 'bg-accent'];
-                  
-                  return (
-                    <div key={category.category} className="flex items-center gap-4">
-                      <div className={`p-3 rounded-lg ${colors[index]}`}>
-                        <Icon className="w-5 h-5 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-medium text-foreground capitalize">{category.category}</span>
-                          <span className="text-sm text-muted-foreground">
-                            {category.total_co2.toFixed(0)} kg ({percentage.toFixed(0)}%)
-                          </span>
-                        </div>
-                        <Progress value={percentage} className="h-2" />
+        {/* Recent Activity */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-4">Recent Activities</h3>
+            {entries.length > 0 ? (
+              <div className="space-y-3">
+                {entries.slice(0, 5).map((entry) => (
+                  <div key={entry.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      {getCategoryIcon(entry.category)}
+                      <div>
+                        <div className="font-medium">{entry.activity_type}</div>
+                        <Badge variant="outline" className={getCategoryColor(entry.category)}>
+                          {entry.category}
+                        </Badge>
                       </div>
                     </div>
-                  );
-                })}
+                    <div className="text-right">
+                      <div className="font-semibold">{(entry.co2_emitted || entry.co2_kg || 0).toFixed(1)} kg</div>
+                      <div className="text-sm text-muted-foreground">
+                        {new Date(entry.date || entry.date_recorded || '').toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>No activities tracked yet</p>
+                <p className="text-sm">Start tracking your carbon footprint!</p>
               </div>
             )}
           </Card>
 
-          {/* User Action Section */}
-          <div className="space-y-6">
-            {isAuthenticated ? (
-              <Card className="p-6 bg-gradient-forest text-white">
-                <div className="flex items-center gap-3 mb-4">
-                  <Target className="w-6 h-6" />
-                  <h3 className="text-xl font-semibold">Your Dashboard</h3>
-                </div>
-                <p className="text-white/90 mb-4">
-                  Track your personal carbon footprint and set sustainability goals
-                </p>
-                <Button asChild variant="secondary" className="w-full bg-white/20 text-white hover:bg-white/30">
-                  <Link to="/dashboard">Go to Dashboard</Link>
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-4">Top Impact Category</h3>
+            <div className="text-center py-8">
+              {getCategoryIcon(stats.top_category)}
+              <div className="text-2xl font-bold mt-2 capitalize">{stats.top_category}</div>
+              <p className="text-muted-foreground mt-2">
+                This is your highest emission category. Focus on reducing activities in this area for maximum impact.
+              </p>
+            </div>
+            
+            <div className="space-y-3">
+              <h4 className="font-medium">Quick Actions</h4>
+              <div className="space-y-2">
+                <Button variant="outline" size="sm" className="w-full justify-start">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add New Activity
                 </Button>
-              </Card>
-            ) : (
-              <Card className="p-6 bg-gradient-forest text-white">
-                <div className="flex items-center gap-3 mb-4">
-                  <LogIn className="w-6 h-6" />
-                  <h3 className="text-xl font-semibold">Start Tracking</h3>
-                </div>
-                <p className="text-white/90 mb-4">
-                  Join our community and start tracking your personal carbon footprint today
-                </p>
-                <Button asChild variant="secondary" className="w-full bg-white/20 text-white hover:bg-white/30">
-                  <Link to="/login">Sign Up Free</Link>
+                <Button variant="outline" size="sm" className="w-full justify-start">
+                  <ArrowRight className="w-4 h-4 mr-2" />
+                  View Full Dashboard
                 </Button>
-              </Card>
-            )}
-
-            <div>
-              <h3 className="text-xl font-semibold text-foreground mb-4">
-                Recommended Actions
-              </h3>
-              <div className="space-y-3">
-                {tips.map((tip, index) => (
-                  <Card key={index} className="p-4 hover:shadow-soft transition-all duration-300">
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className="font-medium text-foreground">{tip.title}</h4>
-                      <Badge variant="outline" className="text-primary border-primary">
-                        <TrendingDown className="w-3 h-3 mr-1" />
-                        {tip.impact}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-3">{tip.description}</p>
-                    <Button variant="outline" size="sm" className="w-full">
-                      Learn More
-                    </Button>
-                  </Card>
-                ))}
               </div>
             </div>
+          </Card>
+        </div>
 
-            <Card className="p-6 bg-gradient-ocean text-white">
-              <div className="flex items-center gap-3 mb-4">
-                <Leaf className="w-6 h-6" />
-                <h3 className="text-lg font-semibold">Offset Options</h3>
-              </div>
-              <p className="text-white/90 mb-4">
-                Plant 23 trees to offset this month's emissions
-              </p>
-              <Button variant="secondary" className="w-full bg-white/20 text-white hover:bg-white/30">
-                Find Projects
-              </Button>
-            </Card>
-          </div>
+        {/* Call to Action */}
+        <div className="text-center mt-8">
+          <Button asChild size="lg" className="bg-gradient-forest text-white">
+            <a href="/dashboard">
+              Go to Full Dashboard
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </a>
+          </Button>
         </div>
       </div>
-    </section>
-  );
-};
+    </div>
+  )
+}
 
-export default PersonalTracker;
+export default PersonalTracker

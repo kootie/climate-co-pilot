@@ -12,7 +12,7 @@ import {
   BarChart3,
   RefreshCw
 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { inflectionAI } from '@/lib/inflectionAI'
 
 interface AIResearchInsight {
   id: string
@@ -26,38 +26,86 @@ interface AIResearchInsight {
   created_at: string
 }
 
+interface AIInsightData {
+  title: string
+  summary: string
+  category: string
+  impact_data: string
+  source_type: string
+  credibility_score: number
+}
+
 const AIResearchInsights = () => {
   const [insights, setInsights] = useState<AIResearchInsight[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
 
   useEffect(() => {
-    fetchResearchInsights()
+    generateResearchInsights()
   }, [])
 
-  const fetchResearchInsights = async () => {
+  const generateResearchInsights = async () => {
     setLoading(true)
     setError(null)
 
     try {
-      const { data, error } = await supabase
-        .from('ai_research_insights')
-        .select('*')
-        .eq('published', true)
-        .order('featured', { ascending: false })
-        .order('credibility_score', { ascending: false })
-        .order('created_at', { ascending: false })
-        .limit(10)
+      // Generate research insights using Inflection AI
+      const aiInsights = await inflectionAI.generateResearchData()
+      
+      // Transform AI data to match our interface
+      const transformedInsights: AIResearchInsight[] = aiInsights.map((insight: AIInsightData, index: number) => ({
+        id: `ai_insight_${index}`,
+        title: insight.title,
+        summary: insight.summary,
+        category: insight.category,
+        impact_data: insight.impact_data,
+        source_type: insight.source_type,
+        credibility_score: insight.credibility_score,
+        featured: index < 2, // First 2 insights are featured
+        created_at: new Date().toISOString()
+      }))
 
-      if (error) throw error
-
-      setInsights(data || [])
-    } catch (err: any) {
-      console.error('Error fetching research insights:', err)
-      setError(err.message)
+      setInsights(transformedInsights)
+    } catch (err: unknown) {
+      console.error('Error generating research insights:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Failed to generate research insights'
+      setError(errorMessage)
+      
+      // Fallback to sample insights if AI generation fails
+      setInsights([
+        {
+          id: 'fallback_1',
+          title: 'Electric Vehicle Adoption Accelerates Carbon Reduction in Transportation Sector',
+          summary: 'Recent analysis shows that electric vehicle adoption has reached a tipping point, with EVs now responsible for 14% of global car sales in 2023. The research indicates that personal transportation electrification can reduce individual carbon footprints by 40-60% depending on local electricity grid composition.',
+          category: 'transportation',
+          impact_data: '40-60% reduction in transport emissions, 14% global EV market share',
+          source_type: 'analysis',
+          credibility_score: 8,
+          featured: true,
+          created_at: new Date().toISOString()
+        },
+        {
+          id: 'fallback_2',
+          title: 'Plant-Based Diet Transition Shows Significant Climate Impact',
+          summary: 'Comprehensive studies demonstrate that shifting from meat-heavy diets to plant-based alternatives can reduce individual carbon footprints by 20-30%. This includes both direct agricultural emissions and the broader environmental impact of livestock production.',
+          category: 'food',
+          impact_data: '20-30% reduction in dietary carbon footprint',
+          source_type: 'study',
+          credibility_score: 9,
+          featured: true,
+          created_at: new Date().toISOString()
+        }
+      ])
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleRefresh = async () => {
+    setGenerating(true)
+    await generateResearchInsights()
+    setGenerating(false)
   }
 
   const getCategoryColor = (category: string) => {
@@ -90,7 +138,15 @@ const AIResearchInsights = () => {
     return (
       <div className="text-center py-8">
         <Brain className="w-12 h-12 mx-auto mb-4 text-primary animate-pulse" />
-        <p className="text-muted-foreground">Loading AI research insights...</p>
+        <p className="text-muted-foreground">
+          {generating ? 'Generating new AI research insights...' : 'Loading AI research insights...'}
+        </p>
+        {generating && (
+          <div className="mt-4 text-sm text-muted-foreground">
+            <Sparkles className="w-4 h-4 inline mr-2" />
+            Inflection AI is creating fresh insights...
+          </div>
+        )}
       </div>
     )
   }
@@ -104,7 +160,7 @@ const AIResearchInsights = () => {
             variant="outline" 
             size="sm" 
             className="ml-4"
-            onClick={fetchResearchInsights}
+            onClick={handleRefresh}
           >
             <RefreshCw className="w-4 h-4 mr-2" />
             Retry
@@ -117,12 +173,32 @@ const AIResearchInsights = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <Brain className="w-8 h-8 text-primary" />
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">AI Research Insights</h2>
-          <p className="text-muted-foreground">Latest climate science and carbon reduction research</p>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <Brain className="w-8 h-8 text-primary" />
+          <div>
+            <h2 className="text-2xl font-bold text-foreground">AI Research Insights</h2>
+            <p className="text-muted-foreground">Latest climate science and carbon reduction research</p>
+          </div>
         </div>
+        <Button 
+          onClick={handleRefresh} 
+          disabled={generating}
+          variant="outline"
+          size="sm"
+        >
+          {generating ? (
+            <>
+              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+              Generating...
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-4 h-4 mr-2" />
+              Refresh Insights
+            </>
+          )}
+        </Button>
       </div>
 
       {/* Featured Insights */}

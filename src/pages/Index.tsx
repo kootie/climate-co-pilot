@@ -34,9 +34,9 @@ const Index = () => {
             </p>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
               <p className="text-blue-800">
-                Personal tracker temporarily disabled due to context provider issues.
+                Personal tracker is currently being updated with new features.
                 <br />
-                <a href="/dashboard" className="underline font-semibold">Visit the Dashboard directly</a>
+                <a href="/test-dashboard" className="underline font-semibold">Visit the Test Dashboard</a>
               </p>
             </div>
           </div>
