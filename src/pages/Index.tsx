@@ -6,7 +6,7 @@ import MapView from "@/components/MapView";
 import CommunityDashboard from "@/components/CommunityDashboard";
 import Footer from "@/components/Footer";
 import AppStatus from "@/components/AppStatus";
-import SimpleDebug from "@/components/SimpleDebug";
+
 // import AuthTest from "@/components/AuthTest";
 // import DashboardDebug from "@/components/DashboardDebug";
 // import QuickDashboardTest from "@/components/QuickDashboardTest";
@@ -53,12 +53,7 @@ const Index = () => {
         </div>
       </div>
       
-      {/* Simple Debug Component */}
-      <div className="py-8 bg-red-50">
-        <div className="max-w-7xl mx-auto px-6">
-          <SimpleDebug />
-        </div>
-      </div>
+
       
       <Footer />
     </div>
