@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Favicon Test - EcoGuide AI</title>
+    <link rel="icon" type="image/jpeg" href="/ecoguide.jpg" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            background: #f5f5f5;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; }
+        .info { background: #d1ecf1; border: 1px solid #bee5eb; }
+        .logo { width: 64px; height: 64px; border-radius: 50%; }
+    </style>
+</head>
+<body>
+    <h1>🎨 EcoGuide AI Favicon Test</h1>
+    
+    <div class="test-section success">
+        <h2>✅ Favicon Test Results</h2>
+        <p><strong>Look at your browser tab!</strong> You should see the EcoGuide logo instead of a generic favicon.</p>
+        <img src="/ecoguide.jpg" alt="EcoGuide Logo" class="logo">
+        <p>This is your logo that's now being used as the favicon.</p>
+    </div>
+
+    <div class="test-section info">
+        <h2>🧪 How to Test</h2>
+        <ul>
+            <li><strong>Browser Tab:</strong> Check the tab icon in your browser</li>
+            <li><strong>Bookmark:</strong> Bookmark this page and check the bookmark icon</li>
+            <li><strong>Different Browsers:</strong> Test in Chrome, Firefox, Safari, Edge</li>
+            <li><strong>Mobile:</strong> Test on mobile devices</li>
+        </ul>
+    </div>
+
+    <div class="test-section info">
+        <h2>📱 Social Media Test Links</h2>
+        <p>Test how your site looks when shared on social media:</p>
+        <ul>
+            <li><a href="https://developers.facebook.com/tools/debug/" target="_blank">Facebook Debugger</a></li>
+            <li><a href="https://cards-dev.twitter.com/validator" target="_blank">Twitter Card Validator</a></li>
+            <li><a href="https://www.linkedin.com/post-inspector/" target="_blank">LinkedIn Post Inspector</a></li>
+        </ul>
+        <p><em>Enter your site URL (e.g., http://localhost:8084/) in these tools.</em></p>
+    </div>
+
+    <div class="test-section">
+        <h2>🔧 Troubleshooting</h2>
+        <p>If you don't see the new favicon:</p>
+        <ol>
+            <li><strong>Hard Refresh:</strong> Press Ctrl+F5 (Windows) or Cmd+Shift+R (Mac)</li>
+            <li><strong>Clear Cache:</strong> Clear your browser cache</li>
+            <li><strong>Incognito Mode:</strong> Try opening in private/incognito mode</li>
+            <li><strong>Different Browser:</strong> Test in a different browser</li>
+        </ol>
+    </div>
+
+    <script>
+        // Log favicon URL for debugging
+        console.log('Favicon URL:', '/ecoguide.jpg');
+        console.log('Full favicon path:', window.location.origin + '/ecoguide.jpg');
+        
+        // Test if image loads
+        const img = new Image();
+        img.onload = () => console.log('✅ Favicon image loaded successfully');
+        img.onerror = () => console.error('❌ Favicon image failed to load');
+        img.src = '/ecoguide.jpg';
+    </script>
+</body>
+</html>
