@@ -6,7 +6,8 @@ import { supabase } from '@/lib/supabase'
 interface CarbonEntry {
   category: string
   co2_kg: number
-  date_recorded: string
+  // date_recorded: string  // Disabled - column doesn't exist in database
+  date: string  // Use date column instead
   activity_type: string
 }
 
@@ -30,9 +31,9 @@ export function useAIRecommendations() {
       // Fetch user's carbon tracking data
       const { data: entries, error: fetchError } = await supabase
         .from('carbon_tracking')
-        .select('category, co2_kg, date_recorded, activity_type')
+        .select('category, co2_kg, date, activity_type')
         .eq('user_id', user.id)
-        .order('date_recorded', { ascending: false })
+        .order('date', { ascending: false })
         .limit(50)
 
       if (fetchError) throw fetchError
@@ -43,7 +44,7 @@ export function useAIRecommendations() {
       
       const recentEntries = (entries || []) as CarbonEntry[]
       const monthlyEntries = recentEntries.filter(
-        entry => new Date(entry.date_recorded) >= currentMonth
+        entry => new Date(entry.date) >= currentMonth
       )
 
       const monthlyCo2 = monthlyEntries.reduce((sum, entry) => sum + entry.co2_kg, 0)

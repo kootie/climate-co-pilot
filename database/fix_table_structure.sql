@@ -48,7 +48,9 @@ CREATE TABLE carbon_tracking (
   category VARCHAR(100) NOT NULL,
   activity_type VARCHAR(100) NOT NULL,
   value DECIMAL(10,2) NOT NULL,
+  unit VARCHAR(50) DEFAULT 'kg',
   co2_emitted DECIMAL(10,2) NOT NULL,
+  co2_kg DECIMAL(10,2), -- Add this column for compatibility
   notes TEXT,
   date DATE NOT NULL DEFAULT CURRENT_DATE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -85,13 +87,13 @@ BEGIN
   SELECT id INTO demo_user_id FROM user_profiles WHERE email = 'fabian@inuaake.com';
   
   -- Insert sample carbon tracking data
-  INSERT INTO carbon_tracking (user_id, category, activity_type, value, co2_emitted, date, notes)
+  INSERT INTO carbon_tracking (user_id, category, activity_type, value, co2_emitted, co2_kg, date, notes)
   VALUES 
-    (demo_user_id, 'transportation', 'car_trip', 25.0, 5.25, CURRENT_DATE - 1, 'Commute to work'),
-    (demo_user_id, 'transportation', 'bicycle', 10.0, 0.0, CURRENT_DATE - 2, 'Bike to grocery store'),
-    (demo_user_id, 'energy', 'electricity_kwh', 15.0, 6.8, CURRENT_DATE - 3, 'Home electricity usage'),
-    (demo_user_id, 'food', 'beef_meal', 1.0, 6.61, CURRENT_DATE - 4, 'Dinner'),
-    (demo_user_id, 'waste', 'recycling_kg', 2.0, 0.2, CURRENT_DATE - 5, 'Weekly recycling');
+    (demo_user_id, 'transportation', 'car_trip', 25.0, 5.25, 5.25, CURRENT_DATE - 1, 'Commute to work'),
+    (demo_user_id, 'transportation', 'bicycle', 10.0, 0.0, 0.0, CURRENT_DATE - 2, 'Bike to grocery store'),
+    (demo_user_id, 'energy', 'electricity_kwh', 15.0, 6.8, 6.8, CURRENT_DATE - 3, 'Home electricity usage'),
+    (demo_user_id, 'food', 'beef_meal', 1.0, 6.61, 6.61, CURRENT_DATE - 4, 'Dinner'),
+    (demo_user_id, 'waste', 'recycling_kg', 2.0, 0.2, 0.2, CURRENT_DATE - 5, 'Weekly recycling');
 
   -- Insert sample AI recommendations
   INSERT INTO ai_recommendations (user_id, category, title, description, potential_savings, difficulty_level)
@@ -115,7 +117,7 @@ ORDER BY table_name, ordinal_position;
 
 -- Test a simple query to make sure it works
 SELECT 'Testing carbon_tracking query:' as test;
-SELECT category, activity_type, co2_emitted, date 
+SELECT category, activity_type, co2_emitted, co2_kg, date
 FROM carbon_tracking 
 WHERE user_id IN (SELECT id FROM user_profiles WHERE email = 'fabian@inuaake.com')
 ORDER BY date DESC;

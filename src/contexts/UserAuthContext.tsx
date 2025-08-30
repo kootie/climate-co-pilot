@@ -37,7 +37,7 @@ export function UserAuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Set up demo user immediately for testing
     const demoUser = {
-      id: 'demo-user-id',
+      id: crypto.randomUUID(), // Use proper UUID generation
       email: 'fabian@inuaake.com',
       created_at: new Date().toISOString(),
       app_metadata: {},
@@ -46,7 +46,7 @@ export function UserAuthProvider({ children }: { children: React.ReactNode }) {
     } as User
 
     const demoProfile = {
-      id: 'demo-user-id',
+      id: demoUser.id, // Use the same UUID
       email: 'fabian@inuaake.com',
       full_name: 'Fabian Demo',
       carbon_goal: 2000,

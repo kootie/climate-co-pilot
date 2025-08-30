@@ -43,7 +43,7 @@ interface CarbonEntry {
   co2_emitted?: number
   description?: string
   notes?: string
-  date_recorded?: string
+  // date_recorded?: string  // Disabled - column doesn't exist in database
   date?: string
   user_id?: string
 }
@@ -69,7 +69,7 @@ const UserDashboard = () => {
     amount: '',
     unit: '',
     description: '',
-    date_recorded: new Date().toISOString().split('T')[0]
+    date: new Date().toISOString().split('T')[0]  // Use date instead of date_recorded
   })
 
   // CO2 calculation factors (kg CO2 per unit)
@@ -198,7 +198,7 @@ const UserDashboard = () => {
           value: amount,
           co2_emitted: co2_emitted,
           notes: newEntry.description,
-          date: newEntry.date_recorded
+          date: newEntry.date
         })
         .select()
 
@@ -213,7 +213,7 @@ const UserDashboard = () => {
         amount: '',
         unit: '',
         description: '',
-        date_recorded: new Date().toISOString().split('T')[0]
+        date: new Date().toISOString().split('T')[0]
       })
       fetchUserData()
 
@@ -334,7 +334,7 @@ const UserDashboard = () => {
                         <div>
                           <p className="font-medium">{entry.activity_type.replace('_', ' ')}</p>
                           <p className="text-sm text-muted-foreground">
-                            {entry.value || entry.amount} units • {entry.date || entry.date_recorded}
+                            {entry.value || entry.amount} units • {entry.date}
                           </p>
                         </div>
                       </div>
@@ -351,7 +351,7 @@ const UserDashboard = () => {
                 <div className="space-y-3">
                   {Object.entries(
                     entries
-                      .filter(entry => new Date(entry.date || entry.date_recorded).getMonth() === new Date().getMonth())
+                      .filter(entry => new Date(entry.date).getMonth() === new Date().getMonth())
                       .reduce((acc, entry) => {
                         acc[entry.category] = (acc[entry.category] || 0) + (entry.co2_emitted || entry.co2_kg || 0)
                         return acc
@@ -425,8 +425,8 @@ const UserDashboard = () => {
                   <Label>Date</Label>
                   <Input
                     type="date"
-                    value={newEntry.date_recorded}
-                    onChange={(e) => setNewEntry({...newEntry, date_recorded: e.target.value})}
+                    value={newEntry.date}
+                    onChange={(e) => setNewEntry({...newEntry, date: e.target.value})}
                   />
                 </div>
               </div>
@@ -458,7 +458,7 @@ const UserDashboard = () => {
                       <div>
                         <p className="font-medium capitalize">{entry.activity_type.replace(/_/g, ' ')}</p>
                         <p className="text-sm text-muted-foreground">
-                          {entry.value || entry.amount} units • {entry.date || entry.date_recorded}
+                          {entry.value || entry.amount} units • {entry.date}
                         </p>
                         {(entry.notes || entry.description) && (
                           <p className="text-sm text-muted-foreground italic">{entry.notes || entry.description}</p>

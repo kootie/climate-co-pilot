@@ -24,14 +24,14 @@ interface CarbonEntry {
   id: string
   category: string
   activity_type: string
-  value?: number
   amount?: number
+  value?: number
   unit?: string
   co2_kg?: number
   co2_emitted?: number
   description?: string
   notes?: string
-  date_recorded?: string
+  // date_recorded?: string  // Disabled - column doesn't exist in database
   date?: string
   user_id?: string
 }
@@ -277,7 +277,7 @@ const PersonalTracker = () => {
                     <div className="text-right">
                       <div className="font-semibold">{(entry.co2_emitted || entry.co2_kg || 0).toFixed(1)} kg</div>
                       <div className="text-sm text-muted-foreground">
-                        {new Date(entry.date || entry.date_recorded || '').toLocaleDateString()}
+                        {new Date(entry.date || '').toLocaleDateString()}
                       </div>
                     </div>
                   </div>
