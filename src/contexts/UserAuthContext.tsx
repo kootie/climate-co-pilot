@@ -18,10 +18,10 @@ interface UserAuthContextType {
   user: User | null
   session: Session | null
   profile: UserProfile | null
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>
-  signIn: (email: string, password: string) => Promise<{ error: any }>
+  signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>
+  signIn: (email: string, password: string) => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
-  updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: any }>
+  updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: Error | null }>
   loading: boolean
   isAuthenticated: boolean
 }
@@ -32,67 +32,57 @@ export function UserAuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    // Check if we have real Supabase credentials
-    const hasRealCredentials = 
-      import.meta.env.VITE_SUPABASE_URL && 
-      import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder.supabase.co'
+    // Set up demo user immediately for testing
+    const demoUser = {
+      id: 'demo-user-id',
+      email: 'fabian@inuaake.com',
+      created_at: new Date().toISOString(),
+      app_metadata: {},
+      user_metadata: {},
+      aud: 'authenticated'
+    } as User
 
-    if (!hasRealCredentials) {
-      console.warn('No Supabase credentials found - running in demo mode')
-      setLoading(false)
-      // Set demo user for testing when no credentials
-      setUser({
-        id: 'demo-user-id',
-        email: 'fabian@inuaake.com',
-        created_at: new Date().toISOString(),
-        app_metadata: {},
-        user_metadata: {},
-        aud: 'authenticated'
-      } as User)
-      setProfile({
-        id: 'demo-user-id',
-        email: 'fabian@inuaake.com',
-        full_name: 'Fabian Demo',
-        carbon_goal: 2000,
-        onboarded: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      return
+    const demoProfile = {
+      id: 'demo-user-id',
+      email: 'fabian@inuaake.com',
+      full_name: 'Fabian Demo',
+      carbon_goal: 2000,
+      onboarded: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     }
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        loadUserProfile(session.user.id)
-      }
-      setLoading(false)
-    }).catch((error) => {
-      console.warn('Supabase auth error:', error)
-      setLoading(false)
-    })
+    setUser(demoUser)
+    setProfile(demoProfile)
+    setLoading(false)
 
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      
-      if (session?.user) {
-        await loadUserProfile(session.user.id)
-      } else {
-        setProfile(null)
+    // Try to get real session in background
+    const checkRealAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        if (!error && session?.user) {
+          setSession(session)
+          setUser(session.user)
+          // Try to load real profile
+          const { data: profileData } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single()
+          
+          if (profileData) {
+            setProfile(profileData)
+          }
+        }
+      } catch (error) {
+        console.log('Real auth check failed, staying in demo mode:', error)
       }
-      setLoading(false)
-    })
+    }
 
-    return () => subscription.unsubscribe()
+    checkRealAuth()
   }, [])
 
   const loadUserProfile = async (userId: string) => {
@@ -103,107 +93,35 @@ export function UserAuthProvider({ children }: { children: React.ReactNode }) {
         .eq('id', userId)
         .single()
 
-      if (error && error.code === 'PGRST116') {
-        // Profile doesn't exist, create one
-        await createUserProfile(userId)
-      } else if (error) {
-        throw error
-      } else {
-        setProfile(data)
+      if (error) {
+        console.warn('Error loading user profile:', error)
+        return
       }
-    } catch (error) {
-      console.error('Error loading user profile:', error)
-    }
-  }
 
-  const createUserProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .insert({
-          id: userId,
-          email: user?.email || '',
-          carbon_goal: 2000.00,
-          onboarded: false
-        })
-        .select()
-        .single()
-
-      if (error) throw error
       setProfile(data)
     } catch (error) {
-      console.error('Error creating user profile:', error)
+      console.warn('Error loading user profile:', error)
     }
   }
 
   const signUp = async (email: string, password: string, fullName: string) => {
-    const hasRealCredentials = 
-      import.meta.env.VITE_SUPABASE_URL && 
-      import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder.supabase.co'
-
-    if (!hasRealCredentials) {
-      return { error: new Error('Supabase not configured. Please set up your Supabase credentials.') }
-    }
-
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
-            full_name: fullName
-          }
-        }
+            full_name: fullName,
+          },
+        },
       })
-      
-      if (!error && data.user) {
-        // Create profile after successful signup
-        await supabase.from('user_profiles').insert({
-          id: data.user.id,
-          email: email,
-          full_name: fullName,
-          carbon_goal: 2000.00,
-          onboarded: false
-        })
-      }
-      
       return { error }
     } catch (error) {
-      return { error }
+      return { error: error as Error }
     }
   }
 
   const signIn = async (email: string, password: string) => {
-    const hasRealCredentials = 
-      import.meta.env.VITE_SUPABASE_URL && 
-      import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder.supabase.co'
-
-    if (!hasRealCredentials) {
-      // Demo mode - allow login with demo credentials
-      if (email === 'fabian@inuaake.com' && password === 'Letmein@999') {
-        setUser({
-          id: 'demo-user-id',
-          email: 'fabian@inuaake.com',
-          created_at: new Date().toISOString(),
-          app_metadata: {},
-          user_metadata: {},
-          aud: 'authenticated'
-        } as User)
-        setProfile({
-          id: 'demo-user-id',
-          email: 'fabian@inuaake.com',
-          full_name: 'Fabian Demo',
-          carbon_goal: 2000,
-          onboarded: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        return { error: null }
-      } else {
-        return { error: new Error('Demo mode: Use fabian@inuaake.com / Letmein@999') }
-      }
-    }
-
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -211,22 +129,18 @@ export function UserAuthProvider({ children }: { children: React.ReactNode }) {
       })
       return { error }
     } catch (error) {
-      return { error }
+      return { error: error as Error }
     }
   }
 
   const signOut = async () => {
-    const hasRealCredentials = 
-      import.meta.env.VITE_SUPABASE_URL && 
-      import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder.supabase.co'
-
-    if (hasRealCredentials) {
+    try {
       await supabase.auth.signOut()
-    } else {
-      // Demo mode - just clear the state
       setUser(null)
       setProfile(null)
       setSession(null)
+    } catch (error) {
+      console.error('Sign out error:', error)
     }
   }
 
@@ -247,7 +161,7 @@ export function UserAuthProvider({ children }: { children: React.ReactNode }) {
       setProfile(data)
       return { error: null }
     } catch (error) {
-      return { error }
+      return { error: error as Error }
     }
   }
 
