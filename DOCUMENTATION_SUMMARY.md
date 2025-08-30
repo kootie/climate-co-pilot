@@ -92,7 +92,7 @@ EcoGuide AI/
 ├── DOCUMENTATION_SUMMARY.md          # This summary document
 ├── SUPABASE_SETUP.md                 # Database setup guide
 ├── SENTINEL_HUB_SETUP.md             # Satellite API setup
-├── BRANDING_UPDATE_SUMMARY.md        # Branding changes log
+
 └── docs/
     ├── README.md                      # Documentation index
     ├── WHITEPAPER.md                  # Technical whitepaper
